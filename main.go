@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -28,18 +29,9 @@ var selectedGames []game
 
 func main() {
 	url := "https://www.academiadasapostasbrasil.com/"
+	page := getUrl(url)
 
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		panic(fmt.Sprintf("Erro: %d", resp.StatusCode))
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(page)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,6 +49,19 @@ func main() {
 		fmt.Println(v.league, v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00, v.away00)
 	}
 
+	page.Close()
+}
+
+func getUrl(url string) io.ReadCloser {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Sprintf("Erro: %d", resp.StatusCode))
+	}
+	return resp.Body
 }
 
 func filterGamesByMainRule(games []game) []game {
@@ -64,17 +69,9 @@ func filterGamesByMainRule(games []game) []game {
 	var gameAccepted bool
 
 	for _, v := range games {
-		resp, err := http.Get(v.link)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer resp.Body.Close()
+		statsLink := getUrl(v.link)
 
-		if resp.StatusCode != http.StatusOK {
-			panic(fmt.Sprintf("Erro: %d", resp.StatusCode))
-		}
-
-		doc, err := goquery.NewDocumentFromReader(resp.Body)
+		doc, err := goquery.NewDocumentFromReader(statsLink)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -117,12 +114,12 @@ func filterGamesByMainRule(games []game) []game {
 		if gameAccepted {
 			filteredGames = append(filteredGames, v)
 		}
+		statsLink.Close()
 	}
 	return filteredGames
 }
 
 func getTeamName(spans *goquery.Selection) string {
-
 	teamName, _ := spans.Html()
 	spacePosition := strings.Index(teamName, "<")
 	teamName = teamName[:spacePosition]
@@ -192,16 +189,20 @@ func writeRow(row *goquery.Selection) {
 
 		if attr == "score" {
 			currentGame.score = " vs "
+
 			link, _ := item.Children().First().Attr("href")
 			currentGame.link = link
+			currentGame.homeTeam, currentGame.awayTeam = fillTeams(link)
 		}
 
 		if attr == "score gameinlive" {
-			link, _ := item.Children().First().Attr("href")
 			homeScore := item.Children().First().Children().First().Text()
 			awayScore := item.Children().First().Children().Last().Text()
-			currentGame.link = link
 			currentGame.score = strings.TrimSpace(homeScore) + " - " + strings.TrimSpace(awayScore)
+
+			link, _ := item.Children().First().Attr("href")
+			currentGame.link = link
+			currentGame.homeTeam, currentGame.awayTeam = fillTeams(link)
 		}
 
 		if strings.Contains(attr, "team-b") {
@@ -219,6 +220,21 @@ func writeRow(row *goquery.Selection) {
 	})
 
 	selectedGames = append(selectedGames, currentGame)
+}
+
+func fillTeams(link string) (homeTeam, awayTeam string) {
+	statsPage := getUrl(link)
+	defer statsPage.Close()
+
+	doc, err := goquery.NewDocumentFromReader(statsPage)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	nameHomeTeam, _ := doc.Find(".mobile_single_column table thead tr th.first").Html()
+	nameAwayTeam := doc.Find(".mobile_single_column table thead tr th.last").Text()
+
+	return strings.TrimSpace(nameHomeTeam), strings.TrimSpace(nameAwayTeam)
 }
 
 func FixLength(s, c string, n int) string {
