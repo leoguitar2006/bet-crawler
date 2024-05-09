@@ -21,6 +21,7 @@ type game struct {
 	score    string
 	hour     string
 	home00   float64
+	away00   float64
 }
 
 var selectedGames []game
@@ -53,7 +54,7 @@ func main() {
 	filteredGamesByMainRule := filterGamesByMainRule(filteredGamesBefore20)
 
 	for _, v := range filteredGamesByMainRule {
-		fmt.Println(v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00)
+		fmt.Println(v.league, v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00, v.away00)
 	}
 
 }
@@ -83,24 +84,34 @@ func filterGamesByMainRule(games []game) []game {
 
 			if strings.TrimSpace(tableName) == "Resultado" {
 				item.Find(".ajax-container td.mobile_single_column").Each(func(i int, tableScores *goquery.Selection) {
-					homeTeamScores := strings.TrimSpace(tableScores.Text())
-					fmt.Println(homeTeamScores)
+					teamName := strings.TrimSpace(tableScores.Children().First().Text())
+					spacePosition := strings.Index(teamName, " ")
+					teamName = teamName[:spacePosition]
+					teamName = strings.TrimSpace(teamName)
+
+					if teamName == v.homeTeam || teamName == v.awayTeam {
+						tableScores.Find(".stat-quarts-padding").Each(func(i int, table *goquery.Selection) {
+							table.Find("tr").Each(func(i int, row *goquery.Selection) {
+								gameScore := strings.TrimSpace(row.Children().First().Text())
+								if gameScore == "0-0" {
+									percent00 := strings.TrimSpace(row.Children().Last().Text())
+									percentPosition := strings.Index(percent00, "%")
+									percent00 = percent00[:percentPosition]
+
+									if teamName == v.homeTeam {
+										v.home00, _ = strconv.ParseFloat(percent00, 64)
+									} else if teamName == v.awayTeam {
+										v.away00, _ = strconv.ParseFloat(percent00, 64)
+									}
+									filteredGames = append(filteredGames, v)
+								}
+							})
+						})
+					}
+
 				})
 			}
-
-			// if item.Children().First().Is("span") {
-			// 	teamTableStats := item.Children().First().Text()
-			// 	if teamTableStats == v.homeTeam {
-
-			// 	}
-			// }
-			// teamTableStats := strings.TrimSpace(item.Children().First().Text())
-			// fmt.Println(teamTableStats)
-
 		})
-
-		break
-
 	}
 	return filteredGames
 }
