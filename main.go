@@ -86,13 +86,8 @@ func filterGamesByMainRule(games []game) []game {
 
 			if strings.TrimSpace(tableName) == "Resultado" {
 				item.Find(".ajax-container td.mobile_single_column").Each(func(i int, tableScores *goquery.Selection) {
-					//Change the way to get the team name
-					teamName := strings.TrimSpace(tableScores.Children().First().Text())
-					spacePosition := strings.Index(teamName, " ")
-					teamName = teamName[:spacePosition]
-					teamName = strings.TrimSpace(teamName)
-					fmt.Println(teamName)
-					if strings.Contains(v.homeTeam, teamName) || strings.Contains(v.awayTeam, teamName) {
+					teamName := getTeamName(tableScores.Children().First())
+					if strings.Contains(teamName, v.homeTeam) || strings.Contains(teamName, v.awayTeam) {
 						tableScores.Find("table table.stat-correctscore").Each(func(i int, halfOrFull *goquery.Selection) {
 							gamePart := halfOrFull.Children().First().Children().First().Children().First().Text()
 							if strings.Contains(gamePart, "intervalo") {
@@ -124,6 +119,15 @@ func filterGamesByMainRule(games []game) []game {
 		}
 	}
 	return filteredGames
+}
+
+func getTeamName(spans *goquery.Selection) string {
+
+	teamName, _ := spans.Html()
+	spacePosition := strings.Index(teamName, "<")
+	teamName = teamName[:spacePosition]
+	teamName = strings.TrimSpace(teamName)
+	return teamName
 }
 
 func filterGamesBefore20(games []game) []game {
