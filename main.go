@@ -23,6 +23,8 @@ type game struct {
 	hour     string
 	home00   float64
 	away00   float64
+	homeft00 float64
+	awayft00 float64
 }
 
 var selectedGames []game
@@ -46,7 +48,7 @@ func main() {
 	filteredGamesByMainRule := filterGamesByMainRule(filteredGamesBefore20)
 
 	for _, v := range filteredGamesByMainRule {
-		fmt.Println(v.league, v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00, v.away00)
+		fmt.Println(v.league, v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00, v.away00, v.homeft00, v.awayft00)
 	}
 
 	page.Close()
@@ -87,7 +89,7 @@ func filterGamesByMainRule(games []game) []game {
 					if strings.Contains(teamName, v.homeTeam) || strings.Contains(teamName, v.awayTeam) {
 						tableScores.Find("table table.stat-correctscore").Each(func(i int, halfOrFull *goquery.Selection) {
 							gamePart := halfOrFull.Children().First().Children().First().Children().First().Text()
-							if strings.Contains(gamePart, "intervalo") {
+							if strings.Contains(gamePart, "intervalo") || strings.Contains(gamePart, "final") {
 								halfOrFull.Find("tbody.stat-quarts-padding").Each(func(i int, table *goquery.Selection) {
 									table.Find("tr").Each(func(i int, row *goquery.Selection) {
 										gameScore := strings.TrimSpace(row.Children().First().Text())
@@ -97,9 +99,18 @@ func filterGamesByMainRule(games []game) []game {
 											percent00 = percent00[:percentPosition]
 
 											if teamName == v.homeTeam {
-												v.home00, _ = strconv.ParseFloat(percent00, 64)
+												if strings.Contains(gamePart, "intervalo") {
+													v.home00, _ = strconv.ParseFloat(percent00, 64)
+												} else {
+													v.homeft00, _ = strconv.ParseFloat(percent00, 64)
+												}
+
 											} else if teamName == v.awayTeam {
-												v.away00, _ = strconv.ParseFloat(percent00, 64)
+												if strings.Contains(gamePart, "intervalo") {
+													v.away00, _ = strconv.ParseFloat(percent00, 64)
+												} else {
+													v.awayft00, _ = strconv.ParseFloat(percent00, 64)
+												}
 											}
 											gameAccepted = true
 										}
@@ -182,11 +193,6 @@ func writeRow(row *goquery.Selection) {
 			currentGame.status = statusText
 		}
 
-		if strings.Contains(attr, "team-a") {
-			homeTeam := item.Children().First().Text()
-			currentGame.homeTeam = homeTeam
-		}
-
 		if attr == "score" {
 			currentGame.score = " vs "
 
@@ -203,11 +209,6 @@ func writeRow(row *goquery.Selection) {
 			link, _ := item.Children().First().Attr("href")
 			currentGame.link = link
 			currentGame.homeTeam, currentGame.awayTeam = fillTeams(link)
-		}
-
-		if strings.Contains(attr, "team-b") {
-			awayTeam := item.Children().First().Text()
-			currentGame.awayTeam = awayTeam
 		}
 
 		if attr == "hour" {
@@ -232,7 +233,7 @@ func fillTeams(link string) (homeTeam, awayTeam string) {
 	}
 
 	nameHomeTeam, _ := doc.Find(".mobile_single_column table thead tr th.first").Html()
-	nameAwayTeam := doc.Find(".mobile_single_column table thead tr th.last").Text()
+	nameAwayTeam, _ := doc.Find(".mobile_single_column table thead tr th.last").Html()
 
 	return strings.TrimSpace(nameHomeTeam), strings.TrimSpace(nameAwayTeam)
 }
