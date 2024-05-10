@@ -40,7 +40,6 @@ func main() {
 
 	fmt.Println("Carregando jogos...")
 
-	//Finding the games table...
 	doc.Find("table.competition-today.dskt tbody").Each(func(i int, item *goquery.Selection) {
 		listGames(item)
 	})
