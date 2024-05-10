@@ -38,6 +38,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println("Carregando jogos...")
+
 	//Finding the games table...
 	doc.Find("table.competition-today.dskt tbody").Each(func(i int, item *goquery.Selection) {
 		listGames(item)
@@ -47,11 +49,49 @@ func main() {
 
 	filteredGamesByMainRule := filterGamesByMainRule(filteredGamesBefore20)
 
+	fmt.Println(
+		FixLength("Campeonato", " ", 35), "|",
+		FixLength("Status", " ", 15), "|",
+		FixLength("Hora/Tempo", " ", 10), "|",
+		FixLength("Mandante", " ", 25), "|",
+		FixLength("Placar", " ", 6), "|",
+		FixLength("Visitante", " ", 25), "|",
+		FixLength("HT %", " ", 5), "|",
+		FixLength("FT %", " ", 5), "|",
+		FixLength("LTD", " ", 5), "|",
+	)
+
+	fmt.Println(FixLength("-", "-", 157))
+
 	for _, v := range filteredGamesByMainRule {
-		fmt.Println(v.league, v.status, v.hour, v.homeTeam, v.score, v.awayTeam, v.home00, v.away00, v.homeft00, v.awayft00)
+		printGame(v)
 	}
 
 	page.Close()
+}
+
+func printGame(currentGame game) {
+	sumHT := currentGame.home00 + currentGame.away00
+	sumFT := currentGame.homeft00 + currentGame.awayft00
+	ltd := "Sim"
+
+	if sumFT > 20 {
+		ltd = "Não"
+	}
+
+	if sumHT < 50 {
+		fmt.Println(
+			FixLength(currentGame.league, " ", 35), "|",
+			FixLength(currentGame.status, " ", 15), "|",
+			FixLength(currentGame.hour, " ", 10), "|",
+			FixLength(currentGame.homeTeam, " ", 25), "|",
+			FixLength(currentGame.score, " ", 6), "|",
+			FixLength(currentGame.awayTeam, " ", 25), "|",
+			FixLength(strconv.FormatFloat(sumHT, 'f', 2, 64), " ", 5), "|",
+			FixLength(strconv.FormatFloat(sumFT, 'f', 2, 64), " ", 5), "|",
+			FixLength(ltd, " ", 5), "|",
+		)
+	}
 }
 
 func getUrl(url string) io.ReadCloser {
